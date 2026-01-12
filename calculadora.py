@@ -116,36 +116,67 @@ for d in DIAS:
     if d not in st.session_state:
         st.session_state[d] = {"entrada": "", "salida": "", "tele": False, "vac": False}
 
-# ================= TABLA RESPONSIVE =================
-st.markdown('<div class="table-wrapper">', unsafe_allow_html=True)
-st.markdown(
-    """
-    <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr; gap: 6px; text-align: center; font-weight: bold;">
-        <div>Día</div><div>Entrada</div><div>Salida real</div><div>Salida calculada</div><div>Tele</div><div>Vac</div>
-    </div>
-    """, unsafe_allow_html=True
-)
+# =================== TABLA MOBILE-FIRST ===================
+st.markdown("""
+<style>
+.scroll-container {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 16px;
+    padding-bottom: 8px;
+}
+
+.day-card {
+    flex: 0 0 90%; /* cada "día" ocupa 90% del ancho del contenedor */
+    scroll-snap-align: start;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    background-color: #f9f9f9;
+    min-width: 250px;
+}
+
+.day-card h4 {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.day-card input[type="text"] {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+}
+
+.day-card label {
+    margin-right: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
 
 for d in DIAS:
-    # cada fila como grid
     entrada_val = st.session_state[d]["entrada"] if not st.session_state[d]["tele"] and not st.session_state[d]["vac"] else "—"
     salida_val = st.session_state[d]["salida"] if not st.session_state[d]["tele"] and not st.session_state[d]["vac"] else "—"
 
-    st.markdown(
-        f"""
-        <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr; gap: 6px; text-align: center; margin-bottom: 4px;">
-            <div>{d}</div>
-            <div>{st.text_input('', entrada_val, key=f'ent_{d}', placeholder='08:30', label_visibility='collapsed') if not st.session_state[d]['tele'] and not st.session_state[d]['vac'] else '—'}</div>
-            <div>{st.text_input('', salida_val, key=f'sal_{d}', placeholder='HH:MM', label_visibility='collapsed') if not st.session_state[d]['tele'] and not st.session_state[d]['vac'] else '—'}</div>
-            <div id="calc_{d}"></div>
-            <div>{st.checkbox('', key=f'tele_{d}', label_visibility='collapsed')}</div>
-            <div>{st.checkbox('', key=f'vac_{d}', label_visibility='collapsed')}</div>
-        </div>
-        """, unsafe_allow_html=True
-    )
+    st.markdown(f'<div class="day-card">', unsafe_allow_html=True)
+    st.markdown(f'<h4>{d}</h4>', unsafe_allow_html=True)
+
+    if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
+        st.session_state[d]["entrada"] = st.text_input("Entrada", entrada_val, placeholder="08:30", key=f'ent_{d}')
+        st.session_state[d]["salida"] = st.text_input("Salida", salida_val, placeholder="HH:MM", key=f'sal_{d}')
+    else:
+        st.markdown(f'<p>Entrada: —</p><p>Salida: —</p>', unsafe_allow_html=True)
+
+    st.session_state[d]["tele"] = st.checkbox("Teletrabajo", key=f"tele_{d}")
+    st.session_state[d]["vac"] = st.checkbox("Vacaciones", key=f"vac_{d}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
 
 # ================= CALCULO =================
 if st.button("Calcular"):
