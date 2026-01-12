@@ -8,38 +8,6 @@ st.set_page_config(
     layout="centered"
 )
 
-# ================= CSS DESKTOP-LIKE =================
-st.markdown("""
-<style>
-    .block-container {
-        max-width: 1100px;
-        padding-top: 1rem;
-    }
-
-    /* Tabla con scroll horizontal */
-    .table-wrapper {
-        overflow-x: auto;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
-
-    .table {
-        min-width: 900px;
-    }
-
-    .table th, .table td {
-        padding: 6px 8px;
-        text-align: center;
-        font-size: 0.85rem;
-        white-space: nowrap;
-    }
-
-    input {
-        font-size: 0.85rem !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 # ================= CONSTANTES =================
 HORA_ENTRADA_DEFECTO = "08:30"
 MIN_SALIDA_LJ = "16:30"
@@ -52,8 +20,8 @@ HORA_COMIDA_DESDE = "16:00"
 DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
 
 # ================= FUNCIONES =================
-def h(h):
-    return datetime.strptime(h, "%H:%M")
+def h(hora):
+    return datetime.strptime(hora, "%H:%M")
 
 def calcular():
     horas_total = 0
@@ -104,89 +72,52 @@ def calcular():
     return horas_total, horas_restantes, salidas
 
 # ================= UI =================
-st.title("🕒 Calculadora de salida")
+st.title("🕒 Calculadora de Salida")
 
+# ---------------- HORAS SEMANALES ----------------
 st.number_input("Horas semanales", min_value=0.0, step=0.5, key="horas_semanales")
 st.checkbox("Salir a las 13:15 el viernes", key="viernes_1315")
 
 st.divider()
 
-# inicializar estado
+# ---------------- ESTADO ----------------
 for d in DIAS:
     if d not in st.session_state:
-        st.session_state[d] = {"entrada": "", "salida": "", "tele": False, "vac": False}
+        st.session_state[d] = {"entrada": HORA_ENTRADA_DEFECTO, "salida": "", "tele": False, "vac": False}
 
-# =================== TABLA MOBILE-FIRST ===================
-st.markdown("""
-<style>
-.scroll-container {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    gap: 16px;
-    padding-bottom: 8px;
-}
-
-.day-card {
-    flex: 0 0 90%; /* cada "día" ocupa 90% del ancho del contenedor */
-    scroll-snap-align: start;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 12px;
-    background-color: #f9f9f9;
-    min-width: 250px;
-}
-
-.day-card h4 {
-    text-align: center;
-    margin-bottom: 8px;
-}
-
-.day-card input[type="text"] {
-    width: 100%;
-    padding: 6px;
-    margin-bottom: 6px;
-    font-size: 0.9rem;
-}
-
-.day-card label {
-    margin-right: 8px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-st.markdown('<div class="scroll-container">', unsafe_allow_html=True)
-
+# ---------------- DIAS ----------------
 for d in DIAS:
+    st.subheader(d)
+    
     entrada_val = st.session_state[d]["entrada"] if not st.session_state[d]["tele"] and not st.session_state[d]["vac"] else "—"
-    salida_val = st.session_state[d]["salida"] if not st.session_state[d]["tele"] and not st.session_state[d]["vac"] else "—"
-
-    st.markdown(f'<div class="day-card">', unsafe_allow_html=True)
-    st.markdown(f'<h4>{d}</h4>', unsafe_allow_html=True)
+    salida_val = st.session_state[d]["salida"] if st.session_state[d]["salida"] else ""
 
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
         st.session_state[d]["entrada"] = st.text_input("Entrada", entrada_val, placeholder="08:30", key=f'ent_{d}')
-        st.session_state[d]["salida"] = st.text_input("Salida", salida_val, placeholder="HH:MM", key=f'sal_{d}')
+        st.session_state[d]["salida"] = st.text_input(
+            "Salida", salida_val, placeholder="HH:MM (editable)", key=f'sal_{d}'
+        )
     else:
-        st.markdown(f'<p>Entrada: —</p><p>Salida: —</p>', unsafe_allow_html=True)
+        st.markdown(f"<p>Entrada: —</p><p>Salida: —</p>", unsafe_allow_html=True)
 
     st.session_state[d]["tele"] = st.checkbox("Teletrabajo", key=f"tele_{d}")
     st.session_state[d]["vac"] = st.checkbox("Vacaciones", key=f"vac_{d}")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+st.divider()
 
-st.markdown('</div>', unsafe_allow_html=True)
-
-# ================= CALCULO =================
+# ---------------- CALCULO ----------------
 if st.button("Calcular"):
     horas_total, horas_restantes, salidas = calcular()
+
+    # Actualizar salidas calculadas en session_state
+    for d, h_calc in salidas.items():
+        if not st.session_state[d]["salida"] or st.session_state[d]["salida"] == "":
+            st.session_state[d]["salida"] = h_calc
 
     st.subheader("Resumen")
     st.write(f"Horas trabajadas: **{horas_total:.2f}**")
     st.write(f"Horas restantes: **{horas_restantes:.2f}**")
 
-    if salidas:
-        st.subheader("Salidas recomendadas")
-        for d, h in salidas.items():
-            st.write(f"{d}: **{h}**")
+    st.subheader("Salidas recomendadas (editable)")
+    for d in DIAS:
+        st.write(f"{d}: **{st.session_state[d]['salida']}**")
