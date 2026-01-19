@@ -2,7 +2,11 @@ import streamlit as st
 from datetime import datetime, timedelta, date
 
 # ================= CONFIG =================
-st.set_page_config(page_title="Calculadora de Salida", page_icon="🕒", layout="centered")
+st.set_page_config(
+    page_title="Calculadora de Salida",
+    page_icon="🕒",
+    layout="centered"
+)
 
 # ================= CONSTANTES =================
 HORA_ENTRADA_DEFECTO = "08:30"
@@ -22,6 +26,7 @@ def calcular_salidas():
     horas_total = 0
     hoy = min(date.today().weekday(), 4)
 
+    # Horas ya trabajadas
     for dia in DIAS:
         d = st.session_state[dia]
         if d["vac"]:
@@ -35,8 +40,11 @@ def calcular_salidas():
                 horas -= 0.5
             horas_total += horas
 
-    horas_restantes = max(st.session_state["horas_semanales"] - horas_total, 0)
+    horas_restantes = max(
+        st.session_state["horas_semanales"] - horas_total, 0
+    )
 
+    # Días pendientes (sin salida aún)
     pendientes = [
         d for i, d in enumerate(DIAS)
         if i >= hoy
@@ -46,19 +54,34 @@ def calcular_salidas():
     ]
 
     salidas_calculadas = {}
+
     if pendientes:
         por_dia = horas_restantes / len(pendientes)
+
         for d in pendientes:
             entrada = st.session_state[d]["entrada"] or HORA_ENTRADA_DEFECTO
-            salida = datetime.combine(date.today(), h(entrada).time()) + timedelta(minutes=int(por_dia * 60))
+            salida = (
+                datetime.combine(date.today(), h(entrada).time())
+                + timedelta(minutes=int(por_dia * 60))
+            )
+
             if salida > datetime.combine(date.today(), h(HORA_COMIDA_DESDE).time()):
                 salida += timedelta(minutes=PAUSA_COMIDA_MIN)
 
             if d == "Viernes":
-                min_v = datetime.combine(date.today(), h(MIN_SALIDA_VIERNES).time())
-                salida = min_v if st.session_state["viernes_1315"] else max(salida, min_v)
+                min_v = datetime.combine(
+                    date.today(), h(MIN_SALIDA_VIERNES).time()
+                )
+                salida = (
+                    min_v
+                    if st.session_state["viernes_1315"]
+                    else max(salida, min_v)
+                )
             else:
-                salida = max(salida, datetime.combine(date.today(), h(MIN_SALIDA_LJ).time()))
+                salida = max(
+                    salida,
+                    datetime.combine(date.today(), h(MIN_SALIDA_LJ).time())
+                )
 
             salidas_calculadas[d] = salida.strftime("%H:%M")
 
@@ -66,25 +89,37 @@ def calcular_salidas():
 
 # ================= UI =================
 st.title("🕒 Calculadora de Salida")
-st.number_input("Horas semanales", min_value=0.0, step=0.5, key="horas_semanales")
-st.checkbox("Salir a las 13:15 el viernes", key="viernes_1315")
+
+st.number_input(
+    "Horas semanales",
+    min_value=0.0,
+    step=0.5,
+    key="horas_semanales"
+)
+
+st.checkbox(
+    "Salir a las 13:15 el viernes",
+    key="viernes_1315"
+)
+
 st.divider()
 
-# Inicializar estado
+# ================= ESTADO INICIAL =================
 for d in DIAS:
     if d not in st.session_state:
         st.session_state[d] = {
             "entrada": HORA_ENTRADA_DEFECTO,
             "salida": "",
             "tele": False,
-            "vac": False
+            "vac": False,
         }
+    if f"sal_{d}" not in st.session_state:
+        st.session_state[f"sal_{d}"] = ""
 
-# ---------------- DIAS ----------------
+# ================= DIAS =================
 for d in DIAS:
     st.subheader(d)
 
-    # ✅ CHECKBOXES (NUEVO)
     col1, col2 = st.columns(2)
     with col1:
         st.session_state[d]["tele"] = st.checkbox(
@@ -99,38 +134,40 @@ for d in DIAS:
             key=f"vac_{d}"
         )
 
-    entrada_val = st.session_state[d]["entrada"]
-
-    # Entrada
+    # -------- ENTRADA --------
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
         st.session_state[d]["entrada"] = st.text_input(
             "Entrada",
-            entrada_val,
+            value=st.session_state[d]["entrada"],
             placeholder="08:30",
-            key=f'ent_{d}'
+            key=f"ent_{d}"
         )
     else:
-        st.markdown("<p>Entrada: —</p>", unsafe_allow_html=True)
+        st.markdown("**Entrada:** —")
 
-    # Salida
+    # -------- SALIDA --------
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
-        st.session_state[d]["salida"] = st.text_input(
+        st.text_input(
             "Salida",
-            st.session_state[d]["salida"],
             placeholder="HH:MM",
-            key=f'sal_{d}'
+            key=f"sal_{d}"
         )
+        st.session_state[d]["salida"] = st.session_state[f"sal_{d}"]
     else:
-        st.markdown("<p>Salida: —</p>", unsafe_allow_html=True)
+        st.markdown("**Salida:** —")
+        st.session_state[d]["salida"] = ""
 
 st.divider()
 
-# ---------------- CALCULO ----------------
+# ================= CALCULO =================
 if st.button("Calcular"):
     horas_total, horas_restantes, salidas = calcular_salidas()
 
-    for d, h_calc in salidas.items():
-        if st.session_state[d]["salida"] == "":
-            st.session_state[d]["salida"] = h_calc
+    for d, hora in salidas.items():
+        st.session_state[f"sal_{d}"] = hora
+        st.session_state[d]["salida"] = hora
 
-    st.success(f"Horas trabajadas: {horas_total:.2f} | Horas restantes: {horas_restantes:.2f}")
+    st.success(
+        f"Horas trabajadas: {horas_total:.2f} | "
+        f"Horas restantes: {horas_restantes:.2f}"
+    )
