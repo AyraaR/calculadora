@@ -22,7 +22,6 @@ def calcular_salidas():
     horas_total = 0
     hoy = min(date.today().weekday(), 4)
 
-    # Primero calculamos horas trabajadas
     for dia in DIAS:
         d = st.session_state[dia]
         if d["vac"]:
@@ -51,15 +50,18 @@ def calcular_salidas():
         por_dia = horas_restantes / len(pendientes)
         for d in pendientes:
             entrada = st.session_state[d]["entrada"] or HORA_ENTRADA_DEFECTO
-            salida = datetime.combine(date.today(), h(entrada).time()) + timedelta(minutes=int(por_dia*60))
+            salida = datetime.combine(date.today(), h(entrada).time()) + timedelta(minutes=int(por_dia * 60))
             if salida > datetime.combine(date.today(), h(HORA_COMIDA_DESDE).time()):
                 salida += timedelta(minutes=PAUSA_COMIDA_MIN)
+
             if d == "Viernes":
                 min_v = datetime.combine(date.today(), h(MIN_SALIDA_VIERNES).time())
                 salida = min_v if st.session_state["viernes_1315"] else max(salida, min_v)
             else:
                 salida = max(salida, datetime.combine(date.today(), h(MIN_SALIDA_LJ).time()))
+
             salidas_calculadas[d] = salida.strftime("%H:%M")
+
     return horas_total, horas_restantes, salidas_calculadas
 
 # ================= UI =================
@@ -71,45 +73,53 @@ st.divider()
 # Inicializar estado
 for d in DIAS:
     if d not in st.session_state:
-        st.session_state[d] = {"entrada": HORA_ENTRADA_DEFECTO, "salida": "", "tele": False, "vac": False}
-
-# ================= CSS =================
-st.markdown("""
-<style>
-.calculated {
-    background-color: #d1c4e9 !important; /* morado */
-}
-</style>
-""", unsafe_allow_html=True)
+        st.session_state[d] = {
+            "entrada": HORA_ENTRADA_DEFECTO,
+            "salida": "",
+            "tele": False,
+            "vac": False
+        }
 
 # ---------------- DIAS ----------------
 for d in DIAS:
     st.subheader(d)
 
-    entrada_val = st.session_state[d]["entrada"] if not st.session_state[d]["tele"] and not st.session_state[d]["vac"] else "—"
-    salida_val = st.session_state[d]["salida"]
+    # ✅ CHECKBOXES (NUEVO)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.session_state[d]["tele"] = st.checkbox(
+            "Teletrabajo",
+            value=st.session_state[d]["tele"],
+            key=f"tele_{d}"
+        )
+    with col2:
+        st.session_state[d]["vac"] = st.checkbox(
+            "Vacaciones",
+            value=st.session_state[d]["vac"],
+            key=f"vac_{d}"
+        )
 
-    # Entrada editable
+    entrada_val = st.session_state[d]["entrada"]
+
+    # Entrada
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
-        st.session_state[d]["entrada"] = st.text_input("Entrada", entrada_val, placeholder="08:30", key=f'ent_{d}')
+        st.session_state[d]["entrada"] = st.text_input(
+            "Entrada",
+            entrada_val,
+            placeholder="08:30",
+            key=f'ent_{d}'
+        )
     else:
         st.markdown("<p>Entrada: —</p>", unsafe_allow_html=True)
 
-    # Salida editable
+    # Salida
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
-        # Detectar si es calculada
-        calculated = salida_val != "" and salida_val not in st.session_state.get(f"user_{d}_salida", [""])
-        # Renderizar input normal
-        salida_nueva = st.text_input(
+        st.session_state[d]["salida"] = st.text_input(
             "Salida",
-            salida_val,
+            st.session_state[d]["salida"],
             placeholder="HH:MM",
             key=f'sal_{d}'
         )
-        st.session_state[d]["salida"] = salida_nueva
-        # Guardar si el usuario editó el campo
-        if salida_nueva != salida_val:
-            st.session_state[f"user_{d}_salida"] = [salida_nueva]
     else:
         st.markdown("<p>Salida: —</p>", unsafe_allow_html=True)
 
@@ -119,16 +129,8 @@ st.divider()
 if st.button("Calcular"):
     horas_total, horas_restantes, salidas = calcular_salidas()
 
-    # Poner salidas calculadas solo en campos vacíos
     for d, h_calc in salidas.items():
         if st.session_state[d]["salida"] == "":
             st.session_state[d]["salida"] = h_calc
-            # marcar como calculada para cambiar color (usaremos HTML extra)
-            st.markdown(f"""
-            <script>
-            const input = window.parent.document.querySelector('#sal_{d} input');
-            if(input) {{ input.style.backgroundColor = '#d1c4e9'; }}
-            </script>
-            """, unsafe_allow_html=True)
 
     st.success(f"Horas trabajadas: {horas_total:.2f} | Horas restantes: {horas_restantes:.2f}")
