@@ -26,7 +26,6 @@ def calcular_salidas():
     horas_total = 0
     hoy = min(date.today().weekday(), 4)
 
-    # Horas ya trabajadas
     for dia in DIAS:
         d = st.session_state[dia]
         if d["vac"]:
@@ -40,11 +39,8 @@ def calcular_salidas():
                 horas -= 0.5
             horas_total += horas
 
-    horas_restantes = max(
-        st.session_state["horas_semanales"] - horas_total, 0
-    )
+    horas_restantes = max(st.session_state["horas_semanales"] - horas_total, 0)
 
-    # Días pendientes (sin salida aún)
     pendientes = [
         d for i, d in enumerate(DIAS)
         if i >= hoy
@@ -52,8 +48,6 @@ def calcular_salidas():
         and not st.session_state[d]["vac"]
         and not st.session_state[d]["salida"]
     ]
-
-    salidas_calculadas = {}
 
     if pendientes:
         por_dia = horas_restantes / len(pendientes)
@@ -69,12 +63,9 @@ def calcular_salidas():
                 salida += timedelta(minutes=PAUSA_COMIDA_MIN)
 
             if d == "Viernes":
-                min_v = datetime.combine(
-                    date.today(), h(MIN_SALIDA_VIERNES).time()
-                )
+                min_v = datetime.combine(date.today(), h(MIN_SALIDA_VIERNES).time())
                 salida = (
-                    min_v
-                    if st.session_state["viernes_1315"]
+                    min_v if st.session_state["viernes_1315"]
                     else max(salida, min_v)
                 )
             else:
@@ -83,9 +74,12 @@ def calcular_salidas():
                     datetime.combine(date.today(), h(MIN_SALIDA_LJ).time())
                 )
 
-            salidas_calculadas[d] = salida.strftime("%H:%M")
+            st.session_state[d]["salida"] = salida.strftime("%H:%M")
 
-    return horas_total, horas_restantes, salidas_calculadas
+# ================= CALLBACK =================
+def on_calcular():
+    calcular_salidas()
+    st.session_state["calculado"] = True
 
 # ================= UI =================
 st.title("🕒 Calculadora de Salida")
@@ -104,7 +98,7 @@ st.checkbox(
 
 st.divider()
 
-# ================= ESTADO INICIAL =================
+# ================= ESTADO =================
 for d in DIAS:
     if d not in st.session_state:
         st.session_state[d] = {
@@ -113,8 +107,6 @@ for d in DIAS:
             "tele": False,
             "vac": False,
         }
-    if f"sal_{d}" not in st.session_state:
-        st.session_state[f"sal_{d}"] = ""
 
 # ================= DIAS =================
 for d in DIAS:
@@ -134,40 +126,33 @@ for d in DIAS:
             key=f"vac_{d}"
         )
 
-    # -------- ENTRADA --------
     if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
         st.session_state[d]["entrada"] = st.text_input(
             "Entrada",
             value=st.session_state[d]["entrada"],
-            placeholder="08:30",
             key=f"ent_{d}"
         )
-    else:
-        st.markdown("**Entrada:** —")
 
-    # -------- SALIDA --------
-    if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
-        st.text_input(
+        st.session_state[d]["salida"] = st.text_input(
             "Salida",
-            placeholder="HH:MM",
+            value=st.session_state[d]["salida"],
             key=f"sal_{d}"
         )
-        st.session_state[d]["salida"] = st.session_state[f"sal_{d}"]
     else:
-        st.markdown("**Salida:** —")
+        st.markdown("Entrada: —")
+        st.markdown("Salida: —")
         st.session_state[d]["salida"] = ""
 
 st.divider()
 
-# ================= CALCULO =================
-if st.button("Calcular"):
-    horas_total, horas_restantes, salidas = calcular_salidas()
+st.button("Calcular", on_click=on_calcular)
 
-    for d, hora in salidas.items():
-        st.session_state[f"sal_{d}"] = hora
-        st.session_state[d]["salida"] = hora
-
-    st.success(
-        f"Horas trabajadas: {horas_total:.2f} | "
-        f"Horas restantes: {horas_restantes:.2f}"
+if st.session_state.get("calculado"):
+    total = sum(
+        HORAS_VACACIONES if d["vac"]
+        else HORAS_TELETRABAJO if d["tele"]
+        else 0
+        for d in st.session_state.values()
+        if isinstance(d, dict)
     )
+    st.success("Horas de salida calculadas correctamente ✅")
