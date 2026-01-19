@@ -27,7 +27,6 @@ def calcular_salidas(horas_semanales):
     hoy = min(date.today().weekday(), 4)
     horas_total = 0
 
-    # Horas ya trabajadas
     for dia in DIAS:
         d = st.session_state[dia]
         if d["vac"]:
@@ -115,7 +114,14 @@ for d in DIAS:
         "Vacaciones", key=f"vac_{d}"
     )
 
-    if not st.session_state[d]["tele"] and not st.session_state[d]["vac"]:
+    if st.session_state[d]["vac"]:
+        st.markdown("🏖 **Vacaciones**")
+
+    elif st.session_state[d]["tele"]:
+        horas = HORAS_TELETRABAJO_VIERNES if d == "Viernes" else HORAS_TELETRABAJO
+        st.markdown(f"🏠 **Teletrabajo ({horas} h)**")
+
+    else:
         st.session_state[d]["entrada"] = st.text_input(
             "Hora de entrada",
             value=st.session_state[d]["entrada"],
@@ -128,8 +134,6 @@ for d in DIAS:
             placeholder="HH:MM",
             key=f"sal_{d}"
         )
-    else:
-        st.markdown("⛔ Día no laborable")
 
     st.divider()
 
